@@ -1,5 +1,6 @@
-import { type Booking, type InsertBooking, type AdminUser } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type Booking, type InsertBooking, type AdminUser, bookings, adminUsers } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   createBooking(booking: InsertBooking): Promise<Booking>;
@@ -7,50 +8,29 @@ export interface IStorage {
   getAdminUser(username: string): Promise<AdminUser | undefined>;
 }
 
-export class MemStorage implements IStorage {
-  private bookings: Map<number, Booking>;
-  private adminUsers: Map<number, AdminUser>;
-  private bookingIdCounter: number = 1;
-  private adminIdCounter: number = 1;
-
-  constructor() {
-    this.bookings = new Map();
-    this.adminUsers = new Map();
-    
-    // Initialize default admin user (admin/1234)
-    const defaultAdmin: AdminUser = {
-      id: this.adminIdCounter++,
-      username: "admin",
-      password: "1234", // In production, this should be hashed
-    };
-    this.adminUsers.set(defaultAdmin.id, defaultAdmin);
-  }
-
+export class DatabaseStorage implements IStorage {
   async createBooking(insertBooking: InsertBooking): Promise<Booking> {
-    const id = this.bookingIdCounter++;
-    const booking: Booking = {
-      ...insertBooking,
-      id,
-      desiredStyle: insertBooking.desiredStyle ?? null,
-      otherRequirements: insertBooking.otherRequirements ?? null,
-      photoUrl: insertBooking.photoUrl ?? null,
-      createdAt: new Date(),
-    };
-    this.bookings.set(id, booking);
+    const [booking] = await db
+      .insert(bookings)
+      .values({
+        ...insertBooking,
+        desiredStyle: insertBooking.desiredStyle || null,
+        otherRequirements: insertBooking.otherRequirements || null,
+        photoUrl: insertBooking.photoUrl || null,
+      })
+      .returning();
     return booking;
   }
 
   async getAllBookings(): Promise<Booking[]> {
-    return Array.from(this.bookings.values()).sort(
-      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-    );
+    const allBookings = await db.select().from(bookings).orderBy(bookings.createdAt);
+    return allBookings.reverse();
   }
 
   async getAdminUser(username: string): Promise<AdminUser | undefined> {
-    return Array.from(this.adminUsers.values()).find(
-      (user) => user.username === username
-    );
+    const [user] = await db.select().from(adminUsers).where(eq(adminUsers.username, username));
+    return user || undefined;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
