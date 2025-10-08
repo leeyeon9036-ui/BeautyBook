@@ -14,11 +14,16 @@ async function seed() {
       // Create default admin user
       await db.insert(adminUsers).values({
         username: "admin",
-        password: "1234", // In production, this should be hashed
+        password: "1234",
       });
       console.log("✓ Default admin user created (admin/1234)");
     } else {
-      console.log("✓ Admin user already exists");
+      // Update password to ensure consistency across deployments
+      await db
+        .update(adminUsers)
+        .set({ password: "1234" })
+        .where(eq(adminUsers.username, "admin"));
+      console.log("✓ Admin user password updated to ensure consistency");
     }
 
     process.exit(0);
