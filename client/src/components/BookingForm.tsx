@@ -56,9 +56,29 @@ export default function BookingForm() {
   });
 
   const onSubmit = async (values: InsertBooking) => {
-    console.log("Form submitted:", values);
-    console.log("Photo file:", photoFile);
-    alert("예약 신청이 완료되었습니다!");
+    try {
+      const response = await fetch("/api/bookings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(values),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert("예약 신청이 완료되었습니다!");
+        form.reset();
+        setSelectedDate(undefined);
+        setPhotoFile(null);
+      } else {
+        alert("예약 신청 중 오류가 발생했습니다. 다시 시도해주세요.");
+      }
+    } catch (error) {
+      console.error("Error submitting booking:", error);
+      alert("예약 신청 중 오류가 발생했습니다. 다시 시도해주세요.");
+    }
   };
 
   const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
